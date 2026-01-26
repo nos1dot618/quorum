@@ -1,8 +1,8 @@
 package fun.ninth.quorum.cluster;
 
-import fun.ninth.quorum.node.NodeId;
-
 import java.net.URI;
+
+import fun.ninth.quorum.node.NodeId;
 
 public class Peer {
     private final NodeId nodeId;

@@ -26,7 +26,12 @@ public class RpcServer {
 
     public void start() {
         server.start();
-        System.out.println("Server started listening on port: " + server.getAddress());
+        System.out.println("RPC-Server started listening at port: " + server.getAddress());
+    }
+
+    public void stop() {
+        server.stop(0);
+        System.out.println("RPC-Server stopped listening at port: " + server.getAddress());
     }
 
     public void registerHandler(RpcMessageType messageType, Consumer<RpcEnvelope> handler) {
@@ -38,9 +43,10 @@ public class RpcServer {
         Consumer<RpcEnvelope> handler = handlers.getOrDefault(envelope.getMessageType(), null);
         if (handler == null) {
             httpExchange.sendResponseHeaders(404, -1);
+            httpExchange.getRequestBody().close();
             return;
         }
         handler.accept(envelope);
-        httpExchange.sendResponseHeaders(202, -1);
+        httpExchange.sendResponseHeaders(200, -1);
     }
 }
