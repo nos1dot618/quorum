@@ -2,8 +2,6 @@ package fun.ninth.quorum.transport;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
@@ -11,14 +9,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
-import fun.ninth.quorum.transport.requests.RpcMessageType;
-
-public class RpcServer {
+public class RpcServer<T extends RpcEnvelope> {
     private final HttpServer server;
     private final ObjectMapper mapper = new ObjectMapper();
-    private final Map<RpcMessageType, Consumer<RpcEnvelope>> handlers = new ConcurrentHashMap<>();
+    private final Consumer<T> handler;
+    private final Class<T> envelopeType;
 
-    public RpcServer(int port) throws IOException {
+    public RpcServer(int port, Class<T> envelopeType, Consumer<T> handler) throws IOException {
+        this.envelopeType = envelopeType;
+        this.handler = handler;
+
         server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/rpc", this::handle);
         server.setExecutor(Executors.newFixedThreadPool(4));
@@ -34,18 +34,8 @@ public class RpcServer {
         System.out.println("RPC-Server stopped listening at port: " + server.getAddress());
     }
 
-    public void registerHandler(RpcMessageType messageType, Consumer<RpcEnvelope> handler) {
-        handlers.put(messageType, handler);
-    }
-
     private void handle(HttpExchange httpExchange) throws IOException {
-        RpcEnvelope envelope = mapper.readValue(httpExchange.getRequestBody(), RpcEnvelope.class);
-        Consumer<RpcEnvelope> handler = handlers.getOrDefault(envelope.getMessageType(), null);
-        if (handler == null) {
-            httpExchange.sendResponseHeaders(404, -1);
-            httpExchange.getRequestBody().close();
-            return;
-        }
+        T envelope = mapper.readValue(httpExchange.getRequestBody(), envelopeType);
         handler.accept(envelope);
         httpExchange.sendResponseHeaders(200, -1);
     }

@@ -3,7 +3,7 @@ package fun.ninth.quorum.node;
 public class NodeId {
     private String id;
 
-    /// No-Argument-Constructor and setters are required for jackson-deserializing.
+    @SuppressWarnings("unused")
     public NodeId() {
     }
 
@@ -11,10 +11,12 @@ public class NodeId {
         this.id = id;
     }
 
+    @SuppressWarnings("unused")
     public String getId() {
         return id;
     }
 
+    @SuppressWarnings("unused")
     public void setId(String id) {
         this.id = id;
     }
