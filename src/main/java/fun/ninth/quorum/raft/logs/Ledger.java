@@ -1,4 +1,4 @@
-package fun.ninth.quorum.raft;
+package fun.ninth.quorum.raft.logs;
 
 import java.util.ArrayList;
 import java.util.Collection;

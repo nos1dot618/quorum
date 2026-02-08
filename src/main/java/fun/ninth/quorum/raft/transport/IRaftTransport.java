@@ -1,4 +1,4 @@
-package fun.ninth.quorum.raft;
+package fun.ninth.quorum.raft.transport;
 
 import java.util.List;
 

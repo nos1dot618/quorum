@@ -1,6 +1,6 @@
 package fun.ninth.quorum.raft.messages;
 
-import fun.ninth.quorum.raft.Ledger;
+import fun.ninth.quorum.raft.logs.Ledger;
 
 public final class AppendEntriesRequest implements IRaftMessage {
     /// Current Term

@@ -1,4 +1,4 @@
-package fun.ninth.quorum.raft;
+package fun.ninth.quorum.raft.transport;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -7,6 +7,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import fun.ninth.quorum.cluster.Peer;
+import fun.ninth.quorum.raft.RaftEnvelope;
+import fun.ninth.quorum.raft.RaftNode;
 import fun.ninth.quorum.raft.messages.IRaftMessage;
 
 /// IRaftTransport implementation without RPC, useful for testing and debugging.

@@ -9,6 +9,7 @@ import fun.ninth.quorum.cluster.Peer;
 import fun.ninth.quorum.node.NodeId;
 import fun.ninth.quorum.raft.messages.AppendEntriesRequest;
 import fun.ninth.quorum.raft.messages.AppendEntriesResponse;
+import fun.ninth.quorum.raft.transport.InMemoryRaftTransport;
 import fun.ninth.quorum.utils.DirectExecutorService;
 
 public class RaftNodeAppendEntriesTest {

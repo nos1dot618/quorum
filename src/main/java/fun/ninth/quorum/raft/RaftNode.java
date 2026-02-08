@@ -7,10 +7,12 @@ import java.util.concurrent.Executors;
 
 import fun.ninth.quorum.cluster.Peer;
 import fun.ninth.quorum.node.NodeId;
+import fun.ninth.quorum.raft.logs.Ledger;
 import fun.ninth.quorum.raft.messages.AppendEntriesRequest;
 import fun.ninth.quorum.raft.messages.AppendEntriesResponse;
 import fun.ninth.quorum.raft.messages.RequestVoteRequest;
 import fun.ninth.quorum.raft.messages.RequestVoteResponse;
+import fun.ninth.quorum.raft.transport.IRaftTransport;
 
 public class RaftNode {
     private final IRaftTransport transport;

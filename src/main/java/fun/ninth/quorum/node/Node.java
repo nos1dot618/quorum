@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import fun.ninth.quorum.cluster.Peer;
-import fun.ninth.quorum.raft.IRaftTransport;
+import fun.ninth.quorum.raft.transport.IRaftTransport;
 import fun.ninth.quorum.raft.RaftEnvelope;
 import fun.ninth.quorum.raft.RaftNode;
 import fun.ninth.quorum.raft.RaftPeer;
