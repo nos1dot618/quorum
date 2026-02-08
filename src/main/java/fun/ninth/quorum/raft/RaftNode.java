@@ -19,6 +19,7 @@ public class RaftNode {
     // Persistent raft state.
     private long currentEpoch = 0;
     private NodeId votedFor = null;
+    private int voteCount = 0;
     // TODO: Choose a better implementation
     private List<String> logEntries = new ArrayList<>();
 
@@ -37,13 +38,10 @@ public class RaftNode {
             switch (envelope.getMessage()) {
                 case AppendEntriesRequest request -> handleAppendEntriesRequest(envelope, request);
                 case AppendEntriesResponse response -> handleAppendEntriesResponse(envelope, response);
-                case RequestVoteRequest requestVoteRequest -> {
-                }
-                case RequestVoteResponse requestVoteResponse -> {
-                }
+                case RequestVoteRequest request -> handleRequestVoteRequest(envelope, request);
+                case RequestVoteResponse response -> handleRequestVoteResponse(envelope, response);
             }
         });
-
     }
 
     private void handleAppendEntriesRequest(RaftEnvelope envelope, AppendEntriesRequest request) {
@@ -53,11 +51,7 @@ public class RaftNode {
             return;
         }
         // Latest entries are present, thus become a follower.
-        if (request.getEpoch() > currentEpoch) {
-            currentEpoch = request.getEpoch();
-            role = RaftRole.FOLLOWER;
-            votedFor = null;
-        }
+        if (request.getEpoch() > currentEpoch) becomeFollower(request.getEpoch());
         // Leader sent the heartbeat, stay a follower.
         role = RaftRole.FOLLOWER;
         // Missing entries.
@@ -81,6 +75,12 @@ public class RaftNode {
         replyAppendEntries(envelope, true, logEntries.size(), null);
     }
 
+    private void becomeFollower(long newEpoch) {
+        currentEpoch = newEpoch;
+        role = RaftRole.FOLLOWER;
+        votedFor = null;
+    }
+
     private void replyAppendEntries(RaftEnvelope envelope, boolean success, long nextEntryIndex, @SuppressWarnings("SameParameterValue") Long conflictEpoch) {
         AppendEntriesResponse response = new AppendEntriesResponse(success, nextEntryIndex, conflictEpoch);
         transport.send(envelope.getSourcePeer(), response);
@@ -92,5 +92,29 @@ public class RaftNode {
             // TODO: Send missing log entries to the follower.
         }
         // TODO: Successful replication, increment the successCount, wait till majority before commiting.
+    }
+
+    private void handleRequestVoteRequest(RaftEnvelope envelope, RequestVoteRequest request) {
+        boolean voteGranted = false;
+        // Candidate's term is newer then the voter's term, thus become a follower.
+        if (request.getEpoch() > currentEpoch) becomeFollower(request.getEpoch());
+        boolean canVote = votedFor == null || votedFor.equals(envelope.getSourcePeer().getNodeId());
+        boolean logUpToDate = request.getPreviousEntryIndex() >= logEntries.size() - 1;
+        if (canVote && logUpToDate) {
+            votedFor = envelope.getSourcePeer().getNodeId();
+            voteGranted = true;
+        }
+        // In all the other cases the candidate is behind the voter, thus voteGranted remains false.
+        RequestVoteResponse response = new RequestVoteResponse(currentEpoch, voteGranted);
+        transport.send(envelope.getSourcePeer(), response);
+    }
+
+    private void handleRequestVoteResponse(RaftEnvelope envelope, RequestVoteResponse response) {
+        if (role != RaftRole.CANDIDATE) return;
+        if (response.getEpoch() > currentEpoch) becomeFollower(response.getEpoch());
+        if (response.isVoteGranted()) {
+            voteCount += 1;
+            // TODO: Once majority is reached become LEADER.
+        }
     }
 }

@@ -1,5 +1,7 @@
 package fun.ninth.quorum.node;
 
+import java.util.Objects;
+
 public class NodeId {
     private String id;
 
@@ -19,5 +21,14 @@ public class NodeId {
     @SuppressWarnings("unused")
     public void setId(String id) {
         this.id = id;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) return true;
+        if (object instanceof NodeId other) {
+            return Objects.equals(id, other.id);
+        }
+        return false;
     }
 }
