@@ -11,6 +11,6 @@ public interface IRaftTransport {
     List<Peer> getPeers();
 
     default int getMajorityCount() {
-        return (getPeers().size() + 1) / 2 + 1;
+        return getPeers().size() / 2 + 1;
     }
 }

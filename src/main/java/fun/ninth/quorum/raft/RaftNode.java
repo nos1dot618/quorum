@@ -14,7 +14,7 @@ import fun.ninth.quorum.raft.messages.RequestVoteResponse;
 
 public class RaftNode {
     private final IRaftTransport transport;
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ExecutorService executorService;
 
     // Persistent raft state.
     private long currentEpoch = 0;
@@ -35,6 +35,13 @@ public class RaftNode {
 
     public RaftNode(IRaftTransport transport) {
         this.transport = transport;
+        executorService = Executors.newSingleThreadExecutor();
+    }
+
+    /// Right now only used for testing.
+    public RaftNode(IRaftTransport transport, ExecutorService executorService) {
+        this.transport = transport;
+        this.executorService = executorService;
     }
 
     public void rpcHandler(RaftEnvelope envelope) {
