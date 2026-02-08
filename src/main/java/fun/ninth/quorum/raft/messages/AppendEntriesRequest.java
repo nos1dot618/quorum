@@ -1,24 +1,24 @@
 package fun.ninth.quorum.raft.messages;
 
-import java.util.List;
+import fun.ninth.quorum.raft.Ledger;
 
 public final class AppendEntriesRequest implements IRaftMessage {
     /// Current Term
     private long epoch;
     private long previousEntryIndex;
     private long previousEntryEpoch;
-    private List<String> entries;
+    private Ledger ledger;
     private long leaderCommitIndex;
 
     @SuppressWarnings("unused")
     public AppendEntriesRequest() {
     }
 
-    public AppendEntriesRequest(long epoch, long previousEntryIndex, long previousEntryEpoch, List<String> entries, long leaderCommitIndex) {
+    public AppendEntriesRequest(long epoch, long previousEntryIndex, long previousEntryEpoch, Ledger ledger, long leaderCommitIndex) {
         this.epoch = epoch;
         this.previousEntryIndex = previousEntryIndex;
         this.previousEntryEpoch = previousEntryEpoch;
-        this.entries = entries;
+        this.ledger = ledger;
         this.leaderCommitIndex = leaderCommitIndex;
     }
 
@@ -43,13 +43,13 @@ public final class AppendEntriesRequest implements IRaftMessage {
     }
 
     @SuppressWarnings("unused")
-    public List<String> getEntries() {
-        return entries;
+    public Ledger getLedger() {
+        return ledger;
     }
 
     @SuppressWarnings("unused")
-    public void setEntries(List<String> entries) {
-        this.entries = entries;
+    public void setLedger(Ledger ledger) {
+        this.ledger = ledger;
     }
 
     @SuppressWarnings("unused")

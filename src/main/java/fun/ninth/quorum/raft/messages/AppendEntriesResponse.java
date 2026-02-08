@@ -1,6 +1,7 @@
 package fun.ninth.quorum.raft.messages;
 
 public final class AppendEntriesResponse implements IRaftMessage {
+    private long epoch;
     private boolean success;
     private long nextEntryIndex;
     private Long conflictEpoch;
@@ -9,7 +10,8 @@ public final class AppendEntriesResponse implements IRaftMessage {
     public AppendEntriesResponse() {
     }
 
-    public AppendEntriesResponse(boolean success, long nextEntryIndex, Long conflictEpoch) {
+    public AppendEntriesResponse(long epoch, boolean success, long nextEntryIndex, Long conflictEpoch) {
+        this.epoch = epoch;
         this.success = success;
         this.nextEntryIndex = nextEntryIndex;
         this.conflictEpoch = conflictEpoch;
@@ -43,5 +45,15 @@ public final class AppendEntriesResponse implements IRaftMessage {
     @SuppressWarnings("unused")
     public void setConflictEpoch(Long conflictEpoch) {
         this.conflictEpoch = conflictEpoch;
+    }
+
+    @SuppressWarnings("unused")
+    public long getEpoch() {
+        return epoch;
+    }
+
+    @SuppressWarnings("unused")
+    public void setEpoch(long epoch) {
+        this.epoch = epoch;
     }
 }
