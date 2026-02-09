@@ -21,7 +21,6 @@ public class RaftNode {
     // Persistent raft state.
     private long currentEpoch = 0;
     private NodeId votedFor = null;
-    // TODO: Choose a better implementation
     private final Ledger ledger = new Ledger();
 
     // Volatile raft state.
@@ -150,6 +149,7 @@ public class RaftNode {
         }
     }
 
+    // TODO: Add election timeout.
     private void handleRequestVoteRequest(RaftEnvelope envelope, RequestVoteRequest request) {
         boolean voteGranted = false;
         // Candidate's term is newer then the voter's term, thus become a follower.

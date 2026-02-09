@@ -2,25 +2,20 @@ package fun.ninth.quorum.node;
 
 import java.util.Objects;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class NodeId {
-    private String id;
+    private final String id;
 
-    @SuppressWarnings("unused")
-    public NodeId() {
-    }
-
-    public NodeId(String id) {
+    @JsonCreator
+    public NodeId(@JsonProperty("id") String id) {
         this.id = id;
     }
 
     @SuppressWarnings("unused")
     public String getId() {
         return id;
-    }
-
-    @SuppressWarnings("unused")
-    public void setId(String id) {
-        this.id = id;
     }
 
     @Override
