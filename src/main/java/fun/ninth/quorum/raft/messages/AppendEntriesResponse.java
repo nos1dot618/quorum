@@ -1,16 +1,19 @@
 package fun.ninth.quorum.raft.messages;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public final class AppendEntriesResponse implements IRaftMessage {
-    private long epoch;
-    private boolean success;
-    private long nextEntryIndex;
-    private Long conflictEpoch;
+    private final long epoch;
+    private final boolean success;
+    private final long nextEntryIndex;
+    private final Long conflictEpoch;
 
-    @SuppressWarnings("unused")
-    public AppendEntriesResponse() {
-    }
-
-    public AppendEntriesResponse(long epoch, boolean success, long nextEntryIndex, Long conflictEpoch) {
+    @JsonCreator
+    public AppendEntriesResponse(@JsonProperty("epoch") long epoch, @JsonProperty("success") boolean success,
+                                 @JsonProperty("nextEntryIndex") long nextEntryIndex,
+                                 @JsonProperty("conflictEpoch") Long conflictEpoch)
+    {
         this.epoch = epoch;
         this.success = success;
         this.nextEntryIndex = nextEntryIndex;
@@ -23,18 +26,8 @@ public final class AppendEntriesResponse implements IRaftMessage {
     }
 
     @SuppressWarnings("unused")
-    public void setSuccess(boolean success) {
-        this.success = success;
-    }
-
-    @SuppressWarnings("unused")
     public long getNextEntryIndex() {
         return nextEntryIndex;
-    }
-
-    @SuppressWarnings("unused")
-    public void setNextEntryIndex(long nextEntryIndex) {
-        this.nextEntryIndex = nextEntryIndex;
     }
 
     @SuppressWarnings("unused")
@@ -43,17 +36,7 @@ public final class AppendEntriesResponse implements IRaftMessage {
     }
 
     @SuppressWarnings("unused")
-    public void setConflictEpoch(Long conflictEpoch) {
-        this.conflictEpoch = conflictEpoch;
-    }
-
-    @SuppressWarnings("unused")
     public long getEpoch() {
         return epoch;
-    }
-
-    @SuppressWarnings("unused")
-    public void setEpoch(long epoch) {
-        this.epoch = epoch;
     }
 }

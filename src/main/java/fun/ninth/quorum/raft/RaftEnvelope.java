@@ -1,22 +1,26 @@
 package fun.ninth.quorum.raft;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import fun.ninth.quorum.cluster.Peer;
 import fun.ninth.quorum.raft.messages.IRaftMessage;
 import fun.ninth.quorum.transport.RpcEnvelope;
 
 public class RaftEnvelope extends RpcEnvelope {
-    private Peer sourcePeer;
-    private Peer destinationPeer;
-    private String requestId;
+    private final Peer sourcePeer;
+    private final Peer destinationPeer;
+    private final String requestId;
     /// Replication-Group/Shard ID.
-    private String groupId;
-    private IRaftMessage message;
+    private final String groupId;
+    private final IRaftMessage message;
 
-    @SuppressWarnings("unused")
-    public RaftEnvelope() {
-    }
-
-    public RaftEnvelope(Peer sourcePeer, Peer destinationPeer, String requestId, String groupId, IRaftMessage message) {
+    @JsonCreator
+    public RaftEnvelope(@JsonProperty("sourcePeer") Peer sourcePeer,
+                        @JsonProperty("destinationPeer") Peer destinationPeer,
+                        @JsonProperty("requestId") String requestId, @JsonProperty("groupId") String groupId,
+                        @JsonProperty("message") IRaftMessage message)
+    {
         this.sourcePeer = sourcePeer;
         this.destinationPeer = destinationPeer;
         this.requestId = requestId;
@@ -30,18 +34,8 @@ public class RaftEnvelope extends RpcEnvelope {
     }
 
     @SuppressWarnings("unused")
-    public void setSourcePeer(Peer sourcePeer) {
-        this.sourcePeer = sourcePeer;
-    }
-
-    @SuppressWarnings("unused")
     public Peer getDestinationPeer() {
         return destinationPeer;
-    }
-
-    @SuppressWarnings("unused")
-    public void setDestinationPeer(Peer destinationPeer) {
-        this.destinationPeer = destinationPeer;
     }
 
     @SuppressWarnings("unused")
@@ -50,27 +44,12 @@ public class RaftEnvelope extends RpcEnvelope {
     }
 
     @SuppressWarnings("unused")
-    public void setMessage(IRaftMessage message) {
-        this.message = message;
-    }
-
-    @SuppressWarnings("unused")
     public String getRequestId() {
         return requestId;
     }
 
     @SuppressWarnings("unused")
-    public void setRequestId(String requestId) {
-        this.requestId = requestId;
-    }
-
-    @SuppressWarnings("unused")
     public String getGroupId() {
         return groupId;
-    }
-
-    @SuppressWarnings("unused")
-    public void setGroupId(String groupId) {
-        this.groupId = groupId;
     }
 }

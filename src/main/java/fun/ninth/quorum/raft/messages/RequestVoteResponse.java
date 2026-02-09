@@ -1,14 +1,14 @@
 package fun.ninth.quorum.raft.messages;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public final class RequestVoteResponse implements IRaftMessage {
-    private long epoch;
-    private boolean voteGranted;
+    private final long epoch;
+    private final boolean voteGranted;
 
-    @SuppressWarnings("unused")
-    public RequestVoteResponse() {
-    }
-
-    public RequestVoteResponse(long epoch, boolean voteGranted) {
+    @JsonCreator
+    public RequestVoteResponse(@JsonProperty("epoch") long epoch, @JsonProperty("voteGranted") boolean voteGranted) {
         this.epoch = epoch;
         this.voteGranted = voteGranted;
     }
@@ -19,17 +19,7 @@ public final class RequestVoteResponse implements IRaftMessage {
     }
 
     @SuppressWarnings("unused")
-    public void setEpoch(long epoch) {
-        this.epoch = epoch;
-    }
-
-    @SuppressWarnings("unused")
     public boolean isVoteGranted() {
         return voteGranted;
-    }
-
-    @SuppressWarnings("unused")
-    public void setVoteGranted(boolean voteGranted) {
-        this.voteGranted = voteGranted;
     }
 }

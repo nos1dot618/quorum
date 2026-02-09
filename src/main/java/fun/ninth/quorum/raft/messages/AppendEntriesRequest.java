@@ -1,20 +1,25 @@
 package fun.ninth.quorum.raft.messages;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import fun.ninth.quorum.raft.logs.Ledger;
 
 public final class AppendEntriesRequest implements IRaftMessage {
     /// Current Term
-    private long epoch;
-    private long previousEntryIndex;
-    private long previousEntryEpoch;
-    private Ledger ledger;
-    private long leaderCommitIndex;
+    private final long epoch;
+    private final long previousEntryIndex;
+    private final long previousEntryEpoch;
+    private final Ledger ledger;
+    private final long leaderCommitIndex;
 
-    @SuppressWarnings("unused")
-    public AppendEntriesRequest() {
-    }
-
-    public AppendEntriesRequest(long epoch, long previousEntryIndex, long previousEntryEpoch, Ledger ledger, long leaderCommitIndex) {
+    @JsonCreator
+    public AppendEntriesRequest(@JsonProperty("epoch") long epoch,
+                                @JsonProperty("previousEntryIndex") long previousEntryIndex,
+                                @JsonProperty("previousEntryEpoch") long previousEntryEpoch,
+                                @JsonProperty("ledger") Ledger ledger,
+                                @JsonProperty("leaderCommitIndex") long leaderCommitIndex)
+    {
         this.epoch = epoch;
         this.previousEntryIndex = previousEntryIndex;
         this.previousEntryEpoch = previousEntryEpoch;
@@ -28,18 +33,8 @@ public final class AppendEntriesRequest implements IRaftMessage {
     }
 
     @SuppressWarnings("unused")
-    public void setPreviousEntryIndex(long previousEntryIndex) {
-        this.previousEntryIndex = previousEntryIndex;
-    }
-
-    @SuppressWarnings("unused")
     public long getPreviousEntryEpoch() {
         return previousEntryEpoch;
-    }
-
-    @SuppressWarnings("unused")
-    public void setPreviousEntryEpoch(long previousEntryEpoch) {
-        this.previousEntryEpoch = previousEntryEpoch;
     }
 
     @SuppressWarnings("unused")
@@ -48,27 +43,12 @@ public final class AppendEntriesRequest implements IRaftMessage {
     }
 
     @SuppressWarnings("unused")
-    public void setLedger(Ledger ledger) {
-        this.ledger = ledger;
-    }
-
-    @SuppressWarnings("unused")
     public long getLeaderCommitIndex() {
         return leaderCommitIndex;
     }
 
     @SuppressWarnings("unused")
-    public void setLeaderCommitIndex(long leaderCommitIndex) {
-        this.leaderCommitIndex = leaderCommitIndex;
-    }
-
-    @SuppressWarnings("unused")
     public long getEpoch() {
         return epoch;
-    }
-
-    @SuppressWarnings("unused")
-    public void setEpoch(long epoch) {
-        this.epoch = epoch;
     }
 }

@@ -26,8 +26,11 @@ public class Node {
         public void send(Peer ignore, Peer peer, IRaftMessage message) {
             // TODO: Replace hard-coded replication-group Id.
             // TODO: Fix this design sourcePeer only makes sense for testing.
-            RaftEnvelope envelope =
-                    new RaftEnvelope(serverPeer, peer, UUID.randomUUID().toString(), "Shard-A", message);
+            RaftEnvelope envelope = new RaftEnvelope(serverPeer,
+                                                     peer,
+                                                     UUID.randomUUID().toString(),
+                                                     "Shard-A",
+                                                     message);
             client.send(peer, envelope);
         }
 
@@ -47,18 +50,22 @@ public class Node {
         this.client = new RpcClient();
     }
 
+    @SuppressWarnings("unused")
     public NodeId getNodeId() {
         return nodeId;
     }
 
+    @SuppressWarnings("unused")
     public RpcServer<RaftEnvelope> getServer() {
         return server;
     }
 
+    @SuppressWarnings("unused")
     public RpcClient getClient() {
         return client;
     }
 
+    @SuppressWarnings("unused")
     public RaftNode getRaftNode() {
         return raftNode;
     }
