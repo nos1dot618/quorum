@@ -4,10 +4,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 import fun.ninth.quorum.cluster.Peer;
 import fun.ninth.quorum.node.NodeId;
 import fun.ninth.quorum.raft.logs.Ledger;
+import fun.ninth.quorum.raft.logs.LogEntry;
 import fun.ninth.quorum.raft.messages.AppendEntriesRequest;
 import fun.ninth.quorum.raft.messages.AppendEntriesResponse;
 import fun.ninth.quorum.raft.messages.RequestVoteRequest;
@@ -15,8 +20,18 @@ import fun.ninth.quorum.raft.messages.RequestVoteResponse;
 import fun.ninth.quorum.raft.transport.IRaftTransport;
 
 public class RaftNode {
+    private static final long ELECTION_TIMEOUT_MIN_MS = 150;
+    private static final long ELECTION_TIMEOUT_MAX_MS = 300;
+    private static final long HEARTBEAT_TIMEOUT_MS = 50;
+
+    private final Peer peer;
+
+    // Lifecycle.
     private final IRaftTransport transport;
     private final ExecutorService executorService;
+    private final ScheduledExecutorService scheduler;
+    private ScheduledFuture<?> electionTimeoutTask;
+    private ScheduledFuture<?> heartbeatTask;
 
     // Persistent raft state.
     private long currentEpoch = 0;
@@ -34,15 +49,21 @@ public class RaftNode {
     // Candidate state.
     private int voteCount = 0;
 
-    public RaftNode(IRaftTransport transport) {
+    public RaftNode(Peer peer, IRaftTransport transport) {
+        this.peer = peer;
         this.transport = transport;
         executorService = Executors.newSingleThreadExecutor();
+        scheduler = Executors.newSingleThreadScheduledExecutor();
     }
 
     /// Right now only used for testing.
-    public RaftNode(IRaftTransport transport, ExecutorService executorService) {
+    public RaftNode(Peer peer, IRaftTransport transport, ExecutorService executorService,
+                    ScheduledExecutorService scheduler)
+    {
+        this.peer = peer;
         this.transport = transport;
         this.executorService = executorService;
+        this.scheduler = scheduler == null ? Executors.newSingleThreadScheduledExecutor() : scheduler;
     }
 
     public void rpcHandler(RaftEnvelope envelope) {
@@ -56,15 +77,43 @@ public class RaftNode {
         });
     }
 
+    public void start() {
+        resetElectionTimeout();
+    }
+
+    public void stop() {
+        scheduler.shutdown();
+    }
+
+    public RaftRole getRole() {
+        return role;
+    }
+
+    public long getCommitIndex() {
+        return commitIndex;
+    }
+
+    ///  Adds the command to the leader's ledger.
+    ///
+    /// @throws IllegalStateException if the node is the leader.
+    public void propose(Object command) {
+        executorService.submit(() -> {
+            if (role != RaftRole.LEADER) throw new IllegalStateException("Node is not the leader");
+            LogEntry entry = new LogEntry(currentEpoch, command);
+            ledger.add(entry);
+            // Optimistically try to replicate immediately, do not wait for next heartbeat task.
+            sendHeartbeats();
+        });
+    }
+
     private void handleAppendEntriesRequest(RaftEnvelope envelope, AppendEntriesRequest request) {
         if (request.getEpoch() < currentEpoch) {
             replyAppendEntries(envelope, false, ledger.size(), null);
             return;
         }
-        // Latest entries are present, thus become a follower.
+        // Latest entries are present or leader sent a heartbeat, thus become a follower.
         if (request.getEpoch() > currentEpoch) becomeFollower(request.getEpoch());
-        // Leader sent the heartbeat, stay a follower.
-        role = RaftRole.FOLLOWER;
+        resetElectionTimeout();
         // Missing entries.
         if (request.getPreviousEntryIndex() >= ledger.size()) {
             replyAppendEntries(envelope, false, ledger.size(), null);
@@ -87,6 +136,7 @@ public class RaftNode {
     }
 
     private void becomeFollower(long newEpoch) {
+        stopHeartbeatLoop();
         currentEpoch = newEpoch;
         role = RaftRole.FOLLOWER;
         votedFor = null;
@@ -95,9 +145,14 @@ public class RaftNode {
         matchIndexMap.clear();
     }
 
-    private void replyAppendEntries(RaftEnvelope envelope, boolean success, long nextEntryIndex, @SuppressWarnings("SameParameterValue") Long conflictEpoch) {
-        AppendEntriesResponse response = new AppendEntriesResponse(currentEpoch, success, nextEntryIndex, conflictEpoch);
-        transport.send(envelope.getSourcePeer(), response);
+    private void replyAppendEntries(RaftEnvelope envelope, boolean success, long nextEntryIndex,
+                                    @SuppressWarnings("SameParameterValue") Long conflictEpoch)
+    {
+        AppendEntriesResponse response = new AppendEntriesResponse(currentEpoch,
+                                                                   success,
+                                                                   nextEntryIndex,
+                                                                   conflictEpoch);
+        transport.send(peer, envelope.getSourcePeer(), response);
     }
 
     private void handleAppendEntriesResponse(RaftEnvelope envelope, AppendEntriesResponse response) {
@@ -126,13 +181,17 @@ public class RaftNode {
         tryAdvanceCommitIndex();
     }
 
-    private void sendAppendEntries(Peer peer) {
-        int nextIndex = nextIndexMap.get(peer.getNodeId());
+    private void sendAppendEntries(Peer destinationPeer) {
+        // Default request index is 0.
+        int nextIndex = nextIndexMap.getOrDefault(destinationPeer.getNodeId(), 0);
         int previousEntryIndex = nextIndex - 1;
         Ledger subLedger = ledger.subLedger(nextIndex, ledger.size());
-        AppendEntriesRequest request = new AppendEntriesRequest(currentEpoch, previousEntryIndex,
-                ledger.getEpoch(previousEntryIndex), subLedger, commitIndex);
-        transport.send(peer, request);
+        AppendEntriesRequest request = new AppendEntriesRequest(currentEpoch,
+                                                                previousEntryIndex,
+                                                                ledger.getEpoch(previousEntryIndex),
+                                                                subLedger,
+                                                                commitIndex);
+        transport.send(peer, destinationPeer, request);
     }
 
     private void tryAdvanceCommitIndex() {
@@ -149,20 +208,23 @@ public class RaftNode {
         }
     }
 
-    // TODO: Add election timeout.
     private void handleRequestVoteRequest(RaftEnvelope envelope, RequestVoteRequest request) {
         boolean voteGranted = false;
         // Candidate's term is newer then the voter's term, thus become a follower.
         if (request.getEpoch() > currentEpoch) becomeFollower(request.getEpoch());
+
         boolean canVote = votedFor == null || votedFor.equals(envelope.getSourcePeer().getNodeId());
-        boolean logUpToDate = request.getPreviousEntryIndex() >= ledger.size() - 1;
+        boolean logUpToDate = true;
+        if (!ledger.isEmpty()) logUpToDate = request.getPreviousEntryEpoch() > ledger.getLast().getEpoch() ||
+                (request.getPreviousEntryEpoch() == ledger.getLast().getEpoch() &&
+                        request.getPreviousEntryIndex() >= ledger.size() - 1);
         if (canVote && logUpToDate && request.getEpoch() == currentEpoch) {
             votedFor = envelope.getSourcePeer().getNodeId();
             voteGranted = true;
         }
         // In all the other cases the candidate is behind the voter, thus voteGranted remains false.
         RequestVoteResponse response = new RequestVoteResponse(currentEpoch, voteGranted);
-        transport.send(envelope.getSourcePeer(), response);
+        transport.send(peer, envelope.getSourcePeer(), response);
     }
 
     private void handleRequestVoteResponse(RaftEnvelope ignore, RequestVoteResponse response) {
@@ -179,10 +241,71 @@ public class RaftNode {
 
     private void becomeLeader() {
         role = RaftRole.LEADER;
-        for (var peer : transport.getPeers()) {
-            nextIndexMap.put(peer.getNodeId(), ledger.size());
-            nextIndexMap.put(peer.getNodeId(), -1);
-            sendAppendEntries(peer);
+        for (var destinationPeer : transport.getPeers()) {
+            if (peer.equals(destinationPeer)) continue;
+            nextIndexMap.put(destinationPeer.getNodeId(), ledger.size());
+            matchIndexMap.put(destinationPeer.getNodeId(), -1);
+            sendAppendEntries(destinationPeer);
+        }
+        startHeartbeatLoop();
+    }
+
+    private void becomeCandidate() {
+        stopHeartbeatLoop();
+        role = RaftRole.CANDIDATE;
+        currentEpoch++;
+        votedFor = peer.getNodeId();
+        voteCount = 1;
+        resetElectionTimeout();
+
+        LogEntry previousEntry = ledger.getLast();
+        long previousEntryIndex = ledger.size() - 1;
+        long previousEntryEpoch = previousEntry != null ? previousEntry.getEpoch() : -1;
+        RequestVoteRequest request = new RequestVoteRequest(currentEpoch, previousEntryIndex, previousEntryEpoch);
+        for (var destinationPeer : transport.getPeers()) {
+            if (peer.equals(destinationPeer)) continue;
+            transport.send(peer, destinationPeer, request);
+        }
+    }
+
+    private void onElectionTimeout() {
+        if (role == RaftRole.LEADER) return;
+        becomeCandidate();
+    }
+
+    private long randomElectionTimeout() {
+        return ThreadLocalRandom.current().nextLong(ELECTION_TIMEOUT_MIN_MS, ELECTION_TIMEOUT_MAX_MS);
+    }
+
+    private void resetElectionTimeout() {
+        // Cancel the scheduled task if not running.
+        if (electionTimeoutTask != null) electionTimeoutTask.cancel(false);
+        electionTimeoutTask = scheduler.schedule(() -> executorService.submit(this::onElectionTimeout),
+                                                 randomElectionTimeout(),
+                                                 TimeUnit.MILLISECONDS);
+    }
+
+    private void sendHeartbeats() {
+        if (role != RaftRole.LEADER) return;
+        for (var destinationPeer : transport.getPeers()) {
+            if (peer.equals(destinationPeer)) continue;
+            sendAppendEntries(destinationPeer);
+        }
+    }
+
+    private void startHeartbeatLoop() {
+        // Cancel the scheduled task if not running.
+        if (heartbeatTask != null) heartbeatTask.cancel(false);
+        heartbeatTask = scheduler.scheduleAtFixedRate(() -> executorService.submit(this::sendHeartbeats),
+                                                      0,
+                                                      HEARTBEAT_TIMEOUT_MS,
+                                                      TimeUnit.MILLISECONDS);
+    }
+
+    private void stopHeartbeatLoop() {
+        if (heartbeatTask != null) {
+            heartbeatTask.cancel(false);
+            heartbeatTask = null;
         }
     }
 }

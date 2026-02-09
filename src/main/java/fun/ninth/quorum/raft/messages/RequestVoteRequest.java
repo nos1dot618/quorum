@@ -1,15 +1,18 @@
 package fun.ninth.quorum.raft.messages;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public final class RequestVoteRequest implements IRaftMessage {
-    private long epoch;
-    private long previousEntryIndex;
-    private long previousEntryEpoch;
+    private final long epoch;
+    private final long previousEntryIndex;
+    private final long previousEntryEpoch;
 
-    @SuppressWarnings("unused")
-    public RequestVoteRequest() {
-    }
-
-    public RequestVoteRequest(long epoch, long previousEntryIndex, long previousEntryEpoch) {
+    @JsonCreator
+    public RequestVoteRequest(@JsonProperty("epoch") long epoch,
+                              @JsonProperty("previousEntryIndex") long previousEntryIndex,
+                              @JsonProperty("previousEntryEpoch") long previousEntryEpoch)
+    {
         this.epoch = epoch;
         this.previousEntryIndex = previousEntryIndex;
         this.previousEntryEpoch = previousEntryEpoch;
@@ -21,27 +24,12 @@ public final class RequestVoteRequest implements IRaftMessage {
     }
 
     @SuppressWarnings("unused")
-    public void setEpoch(long epoch) {
-        this.epoch = epoch;
-    }
-
-    @SuppressWarnings("unused")
     public long getPreviousEntryIndex() {
         return previousEntryIndex;
     }
 
     @SuppressWarnings("unused")
-    public void setPreviousEntryIndex(long previousEntryIndex) {
-        this.previousEntryIndex = previousEntryIndex;
-    }
-
-    @SuppressWarnings("unused")
     public long getPreviousEntryEpoch() {
         return previousEntryEpoch;
-    }
-
-    @SuppressWarnings("unused")
-    public void setPreviousEntryEpoch(long previousEntryEpoch) {
-        this.previousEntryEpoch = previousEntryEpoch;
     }
 }

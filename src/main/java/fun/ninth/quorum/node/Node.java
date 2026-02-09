@@ -5,11 +5,11 @@ import java.util.List;
 import java.util.UUID;
 
 import fun.ninth.quorum.cluster.Peer;
-import fun.ninth.quorum.raft.transport.IRaftTransport;
 import fun.ninth.quorum.raft.RaftEnvelope;
 import fun.ninth.quorum.raft.RaftNode;
 import fun.ninth.quorum.raft.RaftPeer;
 import fun.ninth.quorum.raft.messages.IRaftMessage;
+import fun.ninth.quorum.raft.transport.IRaftTransport;
 import fun.ninth.quorum.transport.RpcClient;
 import fun.ninth.quorum.transport.RpcServer;
 
@@ -23,9 +23,11 @@ public class Node {
 
     class RaftTransport implements IRaftTransport {
         @Override
-        public void send(Peer peer, IRaftMessage message) {
+        public void send(Peer ignore, Peer peer, IRaftMessage message) {
             // TODO: Replace hard-coded replication-group Id.
-            RaftEnvelope envelope = new RaftEnvelope(serverPeer, peer, UUID.randomUUID().toString(), "Shard-A", message);
+            // TODO: Fix this design sourcePeer only makes sense for testing.
+            RaftEnvelope envelope =
+                    new RaftEnvelope(serverPeer, peer, UUID.randomUUID().toString(), "Shard-A", message);
             client.send(peer, envelope);
         }
 
@@ -38,11 +40,11 @@ public class Node {
 
     public Node(NodeId nodeId, int port) throws IOException {
         this.nodeId = nodeId;
+        this.serverPeer = new RaftPeer(nodeId, port);
         IRaftTransport raftTransport = new RaftTransport();
-        this.raftNode = new RaftNode(raftTransport);
+        this.raftNode = new RaftNode(serverPeer, raftTransport);
         this.server = new RpcServer<>(port, RaftEnvelope.class, raftNode::rpcHandler);
         this.client = new RpcClient();
-        this.serverPeer = new RaftPeer(nodeId, port);
     }
 
     public NodeId getNodeId() {
@@ -63,6 +65,12 @@ public class Node {
 
     public void start() {
         server.start();
-        Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
+        raftNode.start();
+        Runtime.getRuntime().addShutdownHook(new Thread(this::stop));
+    }
+
+    public void stop() {
+        raftNode.stop();
+        server.stop();
     }
 }

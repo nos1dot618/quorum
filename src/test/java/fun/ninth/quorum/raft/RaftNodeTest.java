@@ -2,6 +2,7 @@ package fun.ninth.quorum.raft;
 
 import java.util.List;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,23 +20,28 @@ import fun.ninth.quorum.utils.DirectExecutorService;
 
 public class RaftNodeTest {
     private InMemoryRaftTransport transport;
-    @SuppressWarnings("FieldCanBeLocal")
-    private RaftNode peer1RaftNode, peer2RaftNode, peer3RaftNode;
+    private RaftNode peer1RaftNode;
     private Peer peer1, peer2, peer3;
 
     @BeforeEach
     void setup() {
         transport = new InMemoryRaftTransport();
         DirectExecutorService executorService = new DirectExecutorService();
-        peer1RaftNode = new RaftNode(transport, executorService);
-        peer2RaftNode = new RaftNode(transport, executorService);
-        peer3RaftNode = new RaftNode(transport, executorService);
         peer1 = new RaftPeer(new NodeId("1"), 9001);
         peer2 = new RaftPeer(new NodeId("2"), 9002);
         peer3 = new RaftPeer(new NodeId("3"), 9003);
+        peer1RaftNode = new RaftNode(peer1, transport, executorService, null);
+        RaftNode peer2RaftNode = new RaftNode(peer2, transport, executorService, null);
+        RaftNode peer3RaftNode = new RaftNode(peer3, transport, executorService, null);
         transport.register(peer1, peer1RaftNode);
         transport.register(peer2, peer2RaftNode);
         transport.register(peer3, peer3RaftNode);
+        transport.forEachRaftNode(RaftNode::start);
+    }
+
+    @AfterEach
+    void teardown() {
+        transport.forEachRaftNode(RaftNode::stop);
     }
 
     @Test
@@ -101,7 +107,6 @@ public class RaftNodeTest {
     @Test
     void voteRejectedWhenCandidateLogIsBehind() {
         Ledger ledger = new Ledger(List.of(new LogEntry(1, "cmd")));
-
 
         // Leader first appends an entry into the follower's log.
         {

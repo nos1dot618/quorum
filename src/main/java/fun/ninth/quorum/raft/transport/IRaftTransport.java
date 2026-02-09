@@ -6,7 +6,7 @@ import fun.ninth.quorum.cluster.Peer;
 import fun.ninth.quorum.raft.messages.IRaftMessage;
 
 public interface IRaftTransport {
-    void send(Peer peer, IRaftMessage message);
+    void send(Peer sourcePeer, Peer destinationPeer, IRaftMessage message);
 
     List<Peer> getPeers();
 

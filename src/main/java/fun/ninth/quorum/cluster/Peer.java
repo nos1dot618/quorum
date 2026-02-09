@@ -2,18 +2,20 @@ package fun.ninth.quorum.cluster;
 
 import java.net.URI;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import fun.ninth.quorum.node.NodeId;
 
 public class Peer {
-    private NodeId nodeId;
-    private int port;
-    private URI endpoint;
+    private final NodeId nodeId;
+    private final int port;
+    private final URI endpoint;
 
-    @SuppressWarnings("unused")
-    public Peer() {
-    }
-
-    public Peer(NodeId nodeId, int port, URI endpoint) {
+    @JsonCreator
+    public Peer(@JsonProperty("nodeId") NodeId nodeId, @JsonProperty("port") int port,
+                @JsonProperty("endpoint") URI endpoint)
+    {
         this.nodeId = nodeId;
         this.port = port;
         this.endpoint = endpoint;
@@ -25,18 +27,8 @@ public class Peer {
     }
 
     @SuppressWarnings("unused")
-    public void setNodeId(NodeId nodeId) {
-        this.nodeId = nodeId;
-    }
-
-    @SuppressWarnings("unused")
     public URI getEndpoint() {
         return endpoint;
-    }
-
-    @SuppressWarnings("unused")
-    public void setEndpoint(URI endpoint) {
-        this.endpoint = endpoint;
     }
 
     @SuppressWarnings("unused")
@@ -44,8 +36,11 @@ public class Peer {
         return port;
     }
 
-    @SuppressWarnings("unused")
-    public void setPort(int port) {
-        this.port = port;
+    public boolean equals(Object object) {
+        if (object == null) return false;
+        if (object instanceof Peer other) {
+            return nodeId.equals(other.nodeId) && port == other.port;
+        }
+        return false;
     }
 }

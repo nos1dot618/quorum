@@ -111,7 +111,11 @@ public class Ledger implements Collection<LogEntry> {
     }
 
     public long getEpoch(int index) {
-        if (size() <= index) return -1;
+        if (index < 0 || size() <= index) return -1;
         return logEntries.get(index).getEpoch();
+    }
+
+    public LogEntry getLast() {
+        return logEntries.isEmpty() ? null : logEntries.getLast();
     }
 }
