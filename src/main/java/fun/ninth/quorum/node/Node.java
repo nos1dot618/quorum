@@ -55,7 +55,7 @@ public class Node {
                 String.format("data/node-%s/raft/metadata.json", nodeId.getId()));
         JsonRaftLogStore raftLogStore = new JsonRaftLogStore(
                 String.format("data/node-%s/raft/log.json", nodeId.getId()));
-        this.raftNode = new RaftNode(serverPeer, raftTransport, raftMetadataStore, raftLogStore);
+        this.raftNode = new RaftNode.Builder(serverPeer, raftTransport, raftMetadataStore, raftLogStore).build();
 
         this.server = new RpcServer<>(port, RaftEnvelope.class, raftNode::rpcHandler);
         this.client = new RpcClient();

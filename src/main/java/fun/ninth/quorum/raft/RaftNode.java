@@ -23,6 +23,40 @@ import fun.ninth.quorum.storage.raft.IRaftLogStore;
 import fun.ninth.quorum.storage.raft.IRaftMetadataStore;
 
 public class RaftNode {
+
+    public static class Builder {
+        // Required
+        private final Peer peer;
+        private final IRaftTransport transport;
+        private final IRaftMetadataStore metadataStore;
+        private final IRaftLogStore logStore;
+
+        // Optional
+        private ExecutorService executorService;
+        private ScheduledExecutorService scheduler;
+
+        public Builder(Peer peer, IRaftTransport transport, IRaftMetadataStore metadataStore, IRaftLogStore logStore) {
+            this.peer = peer;
+            this.transport = transport;
+            this.metadataStore = metadataStore;
+            this.logStore = logStore;
+        }
+
+        public Builder executorService(ExecutorService executorService) {
+            this.executorService = executorService;
+            return this;
+        }
+
+        public Builder scheduler(ScheduledExecutorService scheduler) {
+            this.scheduler = scheduler;
+            return this;
+        }
+
+        public RaftNode build() {
+            return new RaftNode(this);
+        }
+    }
+
     private static final long ELECTION_TIMEOUT_MIN_MS = 150;
     private static final long ELECTION_TIMEOUT_MAX_MS = 300;
     private static final long HEARTBEAT_TIMEOUT_MS = 50;
@@ -58,34 +92,19 @@ public class RaftNode {
     private final IRaftMetadataStore metadataStore;
     private final IRaftLogStore logStore;
 
-    // TODO: Make a builder to make this simpler
-    public RaftNode(Peer peer, IRaftTransport transport, IRaftMetadataStore metadataStore, IRaftLogStore logStore) {
-        this.peer = peer;
-        this.transport = transport;
-        this.metadataStore = metadataStore;
-        this.logStore = logStore;
+    private RaftNode(Builder builder) {
+        this.peer = builder.peer;
+        this.transport = builder.transport;
+        this.metadataStore = builder.metadataStore;
+        this.logStore = builder.logStore;
 
+        // Load persistent state.
         this.ledger = logStore.load();
         loadMetadata();
 
-        executorService = Executors.newSingleThreadExecutor();
-        scheduler = Executors.newSingleThreadScheduledExecutor();
-    }
-
-    /// Right now only used for testing.
-    public RaftNode(Peer peer, IRaftTransport transport, ExecutorService executorService,
-                    ScheduledExecutorService scheduler, IRaftMetadataStore metadataStore, IRaftLogStore logStore)
-    {
-        this.peer = peer;
-        this.transport = transport;
-        this.metadataStore = metadataStore;
-        this.logStore = logStore;
-
-        this.ledger = logStore.load();
-        loadMetadata();
-
-        this.executorService = executorService;
-        this.scheduler = scheduler == null ? Executors.newSingleThreadScheduledExecutor() : scheduler;
+        this.executorService =
+                builder.executorService == null ? Executors.newSingleThreadExecutor() : builder.executorService;
+        this.scheduler = builder.scheduler == null ? Executors.newSingleThreadScheduledExecutor() : builder.scheduler;
     }
 
     public void rpcHandler(RaftEnvelope envelope) {
@@ -207,8 +226,7 @@ public class RaftNode {
         int previousEntryIndex = nextIndex - 1;
         Ledger subLedger = ledger.subLedger(nextIndex, ledger.size());
         AppendEntriesRequest request = new AppendEntriesRequest(currentEpoch, previousEntryIndex,
-                ledger.getEpoch(previousEntryIndex), subLedger,
-                commitIndex);
+                ledger.getEpoch(previousEntryIndex), subLedger, commitIndex);
         transport.send(peer, destinationPeer, request);
     }
 

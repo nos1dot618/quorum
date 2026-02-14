@@ -25,12 +25,12 @@ public class RaftNodeIntegrationTest {
         Peer peer1 = new RaftPeer(new NodeId("1"), 9001);
         Peer peer2 = new RaftPeer(new NodeId("2"), 9002);
         Peer peer3 = new RaftPeer(new NodeId("3"), 9003);
-        RaftNode peer1RaftNode = new RaftNode(peer1, transport, new InMemoryRaftMetadataStore(),
-                new InMemoryRaftLogStore());
-        RaftNode peer2RaftNode = new RaftNode(peer2, transport, new InMemoryRaftMetadataStore(),
-                new InMemoryRaftLogStore());
-        RaftNode peer3RaftNode = new RaftNode(peer3, transport, new InMemoryRaftMetadataStore(),
-                new InMemoryRaftLogStore());
+        RaftNode peer1RaftNode = new RaftNode.Builder(peer1, transport, new InMemoryRaftMetadataStore(),
+                new InMemoryRaftLogStore()).build();
+        RaftNode peer2RaftNode = new RaftNode.Builder(peer2, transport, new InMemoryRaftMetadataStore(),
+                new InMemoryRaftLogStore()).build();
+        RaftNode peer3RaftNode = new RaftNode.Builder(peer3, transport, new InMemoryRaftMetadataStore(),
+                new InMemoryRaftLogStore()).build();
         transport.register(peer1, peer1RaftNode);
         transport.register(peer2, peer2RaftNode);
         transport.register(peer3, peer3RaftNode);
