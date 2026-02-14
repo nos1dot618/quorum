@@ -16,8 +16,10 @@ import fun.ninth.quorum.raft.messages.AppendEntriesResponse;
 import fun.ninth.quorum.raft.messages.RequestVoteRequest;
 import fun.ninth.quorum.raft.messages.RequestVoteResponse;
 import fun.ninth.quorum.raft.transport.InMemoryRaftTransport;
+import fun.ninth.quorum.state.KeyValueStateMachine;
 import fun.ninth.quorum.storage.raft.InMemoryRaftLogStore;
 import fun.ninth.quorum.storage.raft.InMemoryRaftMetadataStore;
+import fun.ninth.quorum.storage.state.InMemoryKeyValueStorage;
 import fun.ninth.quorum.utils.DirectExecutorService;
 
 public class RaftNodeTest {
@@ -35,11 +37,14 @@ public class RaftNodeTest {
         peer3 = new RaftPeer(new NodeId("3"), 9003);
 
         peer1RaftNode = new RaftNode.Builder(peer1, transport, new InMemoryRaftMetadataStore(),
-                new InMemoryRaftLogStore()).executorService(executorService).build();
+                new InMemoryRaftLogStore(), new KeyValueStateMachine(new InMemoryKeyValueStorage())).executorService(
+                executorService).build();
         RaftNode peer2RaftNode = new RaftNode.Builder(peer2, transport, new InMemoryRaftMetadataStore(),
-                new InMemoryRaftLogStore()).executorService(executorService).build();
+                new InMemoryRaftLogStore(), new KeyValueStateMachine(new InMemoryKeyValueStorage())).executorService(
+                executorService).build();
         RaftNode peer3RaftNode = new RaftNode.Builder(peer3, transport, new InMemoryRaftMetadataStore(),
-                new InMemoryRaftLogStore()).executorService(executorService).build();
+                new InMemoryRaftLogStore(), new KeyValueStateMachine(new InMemoryKeyValueStorage())).executorService(
+                executorService).build();
 
         transport.register(peer1, peer1RaftNode);
         transport.register(peer2, peer2RaftNode);

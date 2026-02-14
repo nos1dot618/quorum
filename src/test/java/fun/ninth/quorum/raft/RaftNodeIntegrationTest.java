@@ -11,8 +11,10 @@ import org.junit.jupiter.api.Test;
 import fun.ninth.quorum.cluster.Peer;
 import fun.ninth.quorum.node.NodeId;
 import fun.ninth.quorum.raft.transport.InMemoryRaftTransport;
+import fun.ninth.quorum.state.KeyValueStateMachine;
 import fun.ninth.quorum.storage.raft.InMemoryRaftLogStore;
 import fun.ninth.quorum.storage.raft.InMemoryRaftMetadataStore;
+import fun.ninth.quorum.storage.state.InMemoryKeyValueStorage;
 
 public class RaftNodeIntegrationTest {
     private static final int WAIT_TIME_MS = 500;
@@ -28,11 +30,11 @@ public class RaftNodeIntegrationTest {
         Peer peer3 = new RaftPeer(new NodeId("3"), 9003);
 
         RaftNode peer1RaftNode = new RaftNode.Builder(peer1, transport, new InMemoryRaftMetadataStore(),
-                new InMemoryRaftLogStore()).build();
+                new InMemoryRaftLogStore(), new KeyValueStateMachine(new InMemoryKeyValueStorage())).build();
         RaftNode peer2RaftNode = new RaftNode.Builder(peer2, transport, new InMemoryRaftMetadataStore(),
-                new InMemoryRaftLogStore()).build();
+                new InMemoryRaftLogStore(), new KeyValueStateMachine(new InMemoryKeyValueStorage())).build();
         RaftNode peer3RaftNode = new RaftNode.Builder(peer3, transport, new InMemoryRaftMetadataStore(),
-                new InMemoryRaftLogStore()).build();
+                new InMemoryRaftLogStore(), new KeyValueStateMachine(new InMemoryKeyValueStorage())).build();
 
         transport.register(peer1, peer1RaftNode);
         transport.register(peer2, peer2RaftNode);

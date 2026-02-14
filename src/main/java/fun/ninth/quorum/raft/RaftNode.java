@@ -19,6 +19,7 @@ import fun.ninth.quorum.raft.messages.RequestVoteRequest;
 import fun.ninth.quorum.raft.messages.RequestVoteResponse;
 import fun.ninth.quorum.raft.models.RaftMetadata;
 import fun.ninth.quorum.raft.transport.IRaftTransport;
+import fun.ninth.quorum.state.IStateMachine;
 import fun.ninth.quorum.storage.raft.IRaftLogStore;
 import fun.ninth.quorum.storage.raft.IRaftMetadataStore;
 
@@ -30,16 +31,20 @@ public class RaftNode {
         private final IRaftTransport transport;
         private final IRaftMetadataStore metadataStore;
         private final IRaftLogStore logStore;
+        private final IStateMachine stateMachine;
 
         // Optional
         private ExecutorService executorService;
         private ScheduledExecutorService scheduler;
 
-        public Builder(Peer peer, IRaftTransport transport, IRaftMetadataStore metadataStore, IRaftLogStore logStore) {
+        public Builder(Peer peer, IRaftTransport transport, IRaftMetadataStore metadataStore, IRaftLogStore logStore,
+                       IStateMachine stateMachine)
+        {
             this.peer = peer;
             this.transport = transport;
             this.metadataStore = metadataStore;
             this.logStore = logStore;
+            this.stateMachine = stateMachine;
         }
 
         public Builder executorService(ExecutorService executorService) {
@@ -76,6 +81,7 @@ public class RaftNode {
     private final Ledger ledger;
 
     // Volatile raft state.
+    private long appliedIndex = -1;
     private long commitIndex = -1;
     private RaftRole role = RaftRole.FOLLOWER;
 
@@ -89,12 +95,14 @@ public class RaftNode {
     // Store
     private final IRaftMetadataStore metadataStore;
     private final IRaftLogStore logStore;
+    private final IStateMachine stateMachine;
 
     private RaftNode(Builder builder) {
         this.peer = builder.peer;
         this.transport = builder.transport;
         this.metadataStore = builder.metadataStore;
         this.logStore = builder.logStore;
+        this.stateMachine = builder.stateMachine;
 
         // Load persistent state.
         this.ledger = logStore.load();
@@ -168,6 +176,7 @@ public class RaftNode {
         // Update commit index.
         if (request.getLeaderCommitIndex() > commitIndex) {
             commitIndex = Math.min(request.getLeaderCommitIndex(), ledger.size() - 1);
+            applyCommittedEntries();
         }
         replyAppendEntries(envelope, true, ledger.size(), null);
     }
@@ -237,6 +246,7 @@ public class RaftNode {
             // Bump the commit index once reached to a majority for an index.
             if (replicatedCount >= transport.getMajorityCount()) {
                 commitIndex = index;
+                applyCommittedEntries();
                 break;
             }
         }
@@ -356,5 +366,15 @@ public class RaftNode {
 
         currentEpoch = metadata.getEpoch();
         votedFor = metadata.getVotedFor();
+    }
+
+    private void applyCommittedEntries() {
+        while (appliedIndex < commitIndex) {
+            appliedIndex++;
+
+            LogEntry entry = ledger.get((int) appliedIndex);
+            if (entry == null || entry.getCommand() == null) continue;
+            stateMachine.apply(appliedIndex, entry);
+        }
     }
 }

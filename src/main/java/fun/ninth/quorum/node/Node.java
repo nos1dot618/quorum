@@ -10,8 +10,10 @@ import fun.ninth.quorum.raft.RaftNode;
 import fun.ninth.quorum.raft.RaftPeer;
 import fun.ninth.quorum.raft.messages.IRaftMessage;
 import fun.ninth.quorum.raft.transport.IRaftTransport;
+import fun.ninth.quorum.state.KeyValueStateMachine;
 import fun.ninth.quorum.storage.raft.JsonRaftLogStore;
 import fun.ninth.quorum.storage.raft.JsonRaftMetadataStore;
+import fun.ninth.quorum.storage.state.JsonKeyValueStorage;
 import fun.ninth.quorum.transport.RpcClient;
 import fun.ninth.quorum.transport.RpcServer;
 
@@ -28,10 +30,7 @@ public class Node {
         public void send(Peer ignore, Peer peer, IRaftMessage message) {
             // TODO: Replace hard-coded replication-group Id.
             // TODO: Fix this design sourcePeer only makes sense for testing.
-            RaftEnvelope envelope = new RaftEnvelope(serverPeer,
-                    peer,
-                    UUID.randomUUID().toString(),
-                    "Shard-A",
+            RaftEnvelope envelope = new RaftEnvelope(serverPeer, peer, UUID.randomUUID().toString(), "Shard-A",
                     message);
             client.send(peer, envelope);
         }
@@ -48,6 +47,7 @@ public class Node {
         this.serverPeer = new RaftPeer(nodeId, port);
 
         IRaftTransport raftTransport = new RaftTransport();
+
         // TODO: The paths should be configurable.
         // TODO: Paths can also encode the replication group like:
         //       data/node-%d/groups/group-%d/raft/metadata.json
@@ -55,8 +55,11 @@ public class Node {
                 String.format("data/node-%s/raft/metadata.json", nodeId.getId()));
         JsonRaftLogStore raftLogStore = new JsonRaftLogStore(
                 String.format("data/node-%s/raft/log.json", nodeId.getId()));
-        this.raftNode = new RaftNode.Builder(serverPeer, raftTransport, raftMetadataStore, raftLogStore).build();
+        KeyValueStateMachine stateMachine = new KeyValueStateMachine(
+                new JsonKeyValueStorage(String.format("data/node-%s/raft/storage.json", nodeId.getId())));
 
+        this.raftNode = new RaftNode.Builder(serverPeer, raftTransport, raftMetadataStore, raftLogStore,
+                stateMachine).build();
         this.server = new RpcServer<>(port, RaftEnvelope.class, raftNode::rpcHandler);
         this.client = new RpcClient();
     }
