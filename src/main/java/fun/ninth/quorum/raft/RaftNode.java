@@ -17,7 +17,10 @@ import fun.ninth.quorum.raft.messages.AppendEntriesRequest;
 import fun.ninth.quorum.raft.messages.AppendEntriesResponse;
 import fun.ninth.quorum.raft.messages.RequestVoteRequest;
 import fun.ninth.quorum.raft.messages.RequestVoteResponse;
+import fun.ninth.quorum.raft.models.RaftMetadata;
 import fun.ninth.quorum.raft.transport.IRaftTransport;
+import fun.ninth.quorum.storage.raft.IRaftLogStore;
+import fun.ninth.quorum.storage.raft.IRaftMetadataStore;
 
 public class RaftNode {
     private static final long ELECTION_TIMEOUT_MIN_MS = 150;
@@ -34,9 +37,11 @@ public class RaftNode {
     private ScheduledFuture<?> heartbeatTask;
 
     // Persistent raft state.
+    // TODO: Instead store RaftMetadata and expose APIS to update epoch and votedFor,
+    //       this way saving the metadata will be forced.
     private long currentEpoch = 0;
     private NodeId votedFor = null;
-    private final Ledger ledger = new Ledger();
+    private final Ledger ledger;
 
     // Volatile raft state.
     private long commitIndex = -1;
@@ -49,19 +54,36 @@ public class RaftNode {
     // Candidate state.
     private int voteCount = 0;
 
-    public RaftNode(Peer peer, IRaftTransport transport) {
+    // Store
+    private final IRaftMetadataStore metadataStore;
+    private final IRaftLogStore logStore;
+
+    // TODO: Make a builder to make this simpler
+    public RaftNode(Peer peer, IRaftTransport transport, IRaftMetadataStore metadataStore, IRaftLogStore logStore) {
         this.peer = peer;
         this.transport = transport;
+        this.metadataStore = metadataStore;
+        this.logStore = logStore;
+
+        this.ledger = logStore.load();
+        loadMetadata();
+
         executorService = Executors.newSingleThreadExecutor();
         scheduler = Executors.newSingleThreadScheduledExecutor();
     }
 
     /// Right now only used for testing.
     public RaftNode(Peer peer, IRaftTransport transport, ExecutorService executorService,
-                    ScheduledExecutorService scheduler)
+                    ScheduledExecutorService scheduler, IRaftMetadataStore metadataStore, IRaftLogStore logStore)
     {
         this.peer = peer;
         this.transport = transport;
+        this.metadataStore = metadataStore;
+        this.logStore = logStore;
+
+        this.ledger = logStore.load();
+        loadMetadata();
+
         this.executorService = executorService;
         this.scheduler = scheduler == null ? Executors.newSingleThreadScheduledExecutor() : scheduler;
     }
@@ -100,7 +122,7 @@ public class RaftNode {
         executorService.submit(() -> {
             if (role != RaftRole.LEADER) throw new IllegalStateException("Node is not the leader");
             LogEntry entry = new LogEntry(currentEpoch, command);
-            ledger.add(entry);
+            logStore.append(ledger, entry);
             // Optimistically try to replicate immediately, do not wait for next heartbeat task.
             sendHeartbeats();
         });
@@ -121,12 +143,10 @@ public class RaftNode {
         }
         // Remove conflicting entries.
         int index = (int) request.getPreviousEntryIndex() + 1;
-        while (ledger.size() > index) {
-            ledger.removeLast();
-        }
+        logStore.truncateFrom(ledger, index);
         // Not a heartbeat.
         if (request.getLedger() != null && !request.getLedger().isEmpty()) {
-            ledger.addAll(request.getLedger());
+            logStore.appendAll(ledger, request.getLedger());
         }
         // Update commit index.
         if (request.getLeaderCommitIndex() > commitIndex) {
@@ -143,15 +163,15 @@ public class RaftNode {
         voteCount = 0;
         nextIndexMap.clear();
         matchIndexMap.clear();
+
+        saveMetadata();
     }
 
     private void replyAppendEntries(RaftEnvelope envelope, boolean success, long nextEntryIndex,
                                     @SuppressWarnings("SameParameterValue") Long conflictEpoch)
     {
-        AppendEntriesResponse response = new AppendEntriesResponse(currentEpoch,
-                                                                   success,
-                                                                   nextEntryIndex,
-                                                                   conflictEpoch);
+        AppendEntriesResponse response = new AppendEntriesResponse(currentEpoch, success, nextEntryIndex,
+                conflictEpoch);
         transport.send(peer, envelope.getSourcePeer(), response);
     }
 
@@ -186,11 +206,9 @@ public class RaftNode {
         int nextIndex = nextIndexMap.getOrDefault(destinationPeer.getNodeId(), 0);
         int previousEntryIndex = nextIndex - 1;
         Ledger subLedger = ledger.subLedger(nextIndex, ledger.size());
-        AppendEntriesRequest request = new AppendEntriesRequest(currentEpoch,
-                                                                previousEntryIndex,
-                                                                ledger.getEpoch(previousEntryIndex),
-                                                                subLedger,
-                                                                commitIndex);
+        AppendEntriesRequest request = new AppendEntriesRequest(currentEpoch, previousEntryIndex,
+                ledger.getEpoch(previousEntryIndex), subLedger,
+                commitIndex);
         transport.send(peer, destinationPeer, request);
     }
 
@@ -221,6 +239,7 @@ public class RaftNode {
         if (canVote && logUpToDate && request.getEpoch() == currentEpoch) {
             votedFor = envelope.getSourcePeer().getNodeId();
             voteGranted = true;
+            saveMetadata();
         }
         // In all the other cases the candidate is behind the voter, thus voteGranted remains false.
         RequestVoteResponse response = new RequestVoteResponse(currentEpoch, voteGranted);
@@ -257,6 +276,7 @@ public class RaftNode {
         votedFor = peer.getNodeId();
         voteCount = 1;
         resetElectionTimeout();
+        saveMetadata();
 
         LogEntry previousEntry = ledger.getLast();
         long previousEntryIndex = ledger.size() - 1;
@@ -281,8 +301,7 @@ public class RaftNode {
         // Cancel the scheduled task if not running.
         if (electionTimeoutTask != null) electionTimeoutTask.cancel(false);
         electionTimeoutTask = scheduler.schedule(() -> executorService.submit(this::onElectionTimeout),
-                                                 randomElectionTimeout(),
-                                                 TimeUnit.MILLISECONDS);
+                randomElectionTimeout(), TimeUnit.MILLISECONDS);
     }
 
     private void sendHeartbeats() {
@@ -296,10 +315,8 @@ public class RaftNode {
     private void startHeartbeatLoop() {
         // Cancel the scheduled task if not running.
         if (heartbeatTask != null) heartbeatTask.cancel(false);
-        heartbeatTask = scheduler.scheduleAtFixedRate(() -> executorService.submit(this::sendHeartbeats),
-                                                      0,
-                                                      HEARTBEAT_TIMEOUT_MS,
-                                                      TimeUnit.MILLISECONDS);
+        heartbeatTask = scheduler.scheduleAtFixedRate(() -> executorService.submit(this::sendHeartbeats), 0,
+                HEARTBEAT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
     }
 
     private void stopHeartbeatLoop() {
@@ -307,5 +324,21 @@ public class RaftNode {
             heartbeatTask.cancel(false);
             heartbeatTask = null;
         }
+    }
+
+    public RaftMetadata getMetadata() {
+        return new RaftMetadata(currentEpoch, votedFor);
+    }
+
+    private void saveMetadata() {
+        metadataStore.save(getMetadata());
+    }
+
+    private void loadMetadata() {
+        RaftMetadata metadata = metadataStore.load();
+        if (metadata == null) return;
+
+        currentEpoch = metadata.getEpoch();
+        votedFor = metadata.getVotedFor();
     }
 }
