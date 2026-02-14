@@ -71,8 +71,6 @@ public class RaftNode {
     private ScheduledFuture<?> heartbeatTask;
 
     // Persistent raft state.
-    // TODO: Instead store RaftMetadata and expose APIS to update epoch and votedFor,
-    //       this way saving the metadata will be forced.
     private long currentEpoch = 0;
     private NodeId votedFor = null;
     private final Ledger ledger;

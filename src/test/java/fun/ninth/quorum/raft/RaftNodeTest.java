@@ -29,15 +29,18 @@ public class RaftNodeTest {
     void setup() {
         transport = new InMemoryRaftTransport();
         DirectExecutorService executorService = new DirectExecutorService();
+
         peer1 = new RaftPeer(new NodeId("1"), 9001);
         peer2 = new RaftPeer(new NodeId("2"), 9002);
         peer3 = new RaftPeer(new NodeId("3"), 9003);
+
         peer1RaftNode = new RaftNode.Builder(peer1, transport, new InMemoryRaftMetadataStore(),
                 new InMemoryRaftLogStore()).executorService(executorService).build();
         RaftNode peer2RaftNode = new RaftNode.Builder(peer2, transport, new InMemoryRaftMetadataStore(),
                 new InMemoryRaftLogStore()).executorService(executorService).build();
         RaftNode peer3RaftNode = new RaftNode.Builder(peer3, transport, new InMemoryRaftMetadataStore(),
                 new InMemoryRaftLogStore()).executorService(executorService).build();
+
         transport.register(peer1, peer1RaftNode);
         transport.register(peer2, peer2RaftNode);
         transport.register(peer3, peer3RaftNode);
